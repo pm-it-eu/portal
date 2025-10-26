@@ -1,10 +1,11 @@
-name: Deploy to Ubuntu Server
+name: Deploy to Ubuntu Server - DEACTIVATED
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+# DEACTIVATED - No longer runs automatically
+# on:
+#   push:
+#     branches: [ main, master ]
+#   pull_request:
+#     branches: [ main, master ]
 
 jobs:
   deploy:
