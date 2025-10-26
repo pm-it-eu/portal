@@ -432,6 +432,50 @@ async function main() {
     },
   })
 
+  // SLA Warning Template (wird in work-entries verwendet)
+  await prisma.emailTemplate.upsert({
+    where: { name: 'sla-warning' },
+    update: {},
+    create: {
+      name: 'sla-warning',
+      subject: 'Service-Level Warnung: {{serviceLevelName}}',
+      htmlContent: `
+        <h2>Service-Level Warnung</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>Ihr Service-Level "{{serviceLevelName}}" ist bald aufgebraucht:</p>
+        <ul>
+          <li><strong>Verfügbare Minuten:</strong> {{remainingMinutes}} von {{totalMinutes}} Minuten</li>
+          <li><strong>Verbrauch:</strong> {{usagePercentage}}%</li>
+          <li><strong>Nächste Verlängerung:</strong> {{nextRenewal}}</li>
+          <li><strong>Stundensatz:</strong> {{hourlyRate}}€/h</li>
+        </ul>
+        <p>Sie können Ihr Dashboard hier einsehen: <a href="{{dashboardUrl}}">{{dashboardUrl}}</a></p>
+        <p>Bitte kontaktieren Sie uns, um Ihr Service-Level zu verlängern oder zusätzliche Minuten zu kaufen.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Service-Level Warnung
+        
+        Hallo {{firstName}},
+        
+        Ihr Service-Level "{{serviceLevelName}}" ist bald aufgebraucht:
+        
+        Verfügbare Minuten: {{remainingMinutes}} von {{totalMinutes}} Minuten
+        Verbrauch: {{usagePercentage}}%
+        Nächste Verlängerung: {{nextRenewal}}
+        Stundensatz: {{hourlyRate}}€/h
+        
+        Sie können Ihr Dashboard hier einsehen: {{dashboardUrl}}
+        
+        Bitte kontaktieren Sie uns, um Ihr Service-Level zu verlängern oder zusätzliche Minuten zu kaufen.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
   // Maintenance Notification Template
   await prisma.emailTemplate.upsert({
     where: { name: 'maintenance-notification' },

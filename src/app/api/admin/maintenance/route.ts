@@ -74,11 +74,64 @@ export async function POST(request: NextRequest) {
         company: {
           select: {
             id: true,
-            name: true
+            name: true,
+            users: {
+              where: {
+                emailNotifications: true
+              },
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true
+              }
+            }
           }
         }
       }
     })
+
+    // Sende E-Mail-Benachrichtigung an alle Benutzer der Firma
+    try {
+      const { sendTemplateEmail } = await import('@/lib/email')
+      
+      // Formatiere Datum und Zeit
+      const scheduledDate = new Date(scheduledAt).toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      
+      // Formatiere geschätzte Dauer
+      const durationText = estimatedDuration 
+        ? `${estimatedDuration} Minuten` 
+        : 'Nicht angegeben'
+
+      // Sende E-Mail an jeden Benutzer der Firma
+      for (const user of maintenanceWindow.company.users) {
+        await sendTemplateEmail({
+          templateName: 'maintenance-notification',
+          to: user.email,
+          variables: {
+            firstName: user.firstName,
+            companyName: maintenanceWindow.company.name,
+            maintenanceTitle: title,
+            maintenanceDescription: description || 'Keine Beschreibung verfügbar',
+            scheduledDate: scheduledDate,
+            estimatedDuration: durationText,
+            status: 'Geplant',
+            maintenanceUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/maintenance`
+          }
+        })
+      }
+      
+      console.log(`Maintenance notification sent to ${maintenanceWindow.company.users.length} users for company ${maintenanceWindow.company.name}`)
+    } catch (emailError) {
+      console.error('Failed to send maintenance notification email:', emailError)
+      // Continue anyway, don't fail the maintenance window creation
+    }
 
     return NextResponse.json({ 
       success: true, 
