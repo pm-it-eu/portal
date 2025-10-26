@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer'
+import dotenv from 'dotenv'
+
+// Lade .env-Datei falls nicht bereits geladen
+if (!process.env.SMTP_HOST) {
+  dotenv.config()
+}
 
 // E-Mail-Transporter konfigurieren - Erweiterte SSL/TLS Konfiguration
 const transporter = nodemailer.createTransport({
