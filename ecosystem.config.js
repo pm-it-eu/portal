@@ -11,6 +11,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 5, // Maximal 5 Restarts
       min_uptime: '10s', // Mindestens 10 Sekunden laufen
+      env_file: '.env',
       env: {
         NODE_ENV: 'production'
       }
@@ -21,6 +22,7 @@ module.exports = {
       cwd: './',
       autorestart: false, // WICHTIG: Nicht automatisch neu starten
       watch: false,
+      env_file: '.env',
       env: {
         NODE_ENV: 'production'
       }
