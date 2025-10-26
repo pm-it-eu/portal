@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 
-// E-Mail-Transporter konfigurieren - Flexible SSL/TLS Konfiguration
+// E-Mail-Transporter konfigurieren - Erweiterte SSL/TLS Konfiguration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
   port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
@@ -11,7 +11,9 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     rejectUnauthorized: false, // Für lokale Tests
-    ciphers: 'SSLv3' // Explizite Cipher-Suite
+    ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA', // Moderne Cipher-Suites
+    minVersion: 'TLSv1.2', // Mindest TLS-Version
+    maxVersion: 'TLSv1.3' // Maximale TLS-Version
   },
   // Anti-Spam Konfiguration
   pool: true, // Connection Pooling für bessere Reputation
