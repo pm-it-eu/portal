@@ -94,7 +94,7 @@ export default function AdminUsersPage() {
     }
 
     if (companyFilter) {
-      filtered = filtered.filter(user => user.company.id === companyFilter)
+      filtered = filtered.filter(user => user.company?.id === companyFilter)
     }
 
     setFilteredUsers(filtered)
