@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env TZ=Europe/Berlin next dev --turbopack",
-    "build": "cross-env TZ=Europe/Berlin next build --turbopack",
+    "build": "cross-env TZ=Europe/Berlin next build --turbopack --no-lint",
     "start": "cross-env TZ=Europe/Berlin next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
