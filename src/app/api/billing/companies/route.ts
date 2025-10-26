@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
 		const { searchParams } = new URL(request.url)
 		const month = parseInt(searchParams.get('month') || '1')
-		const year = parseInt(searchParams.get('year') || new Date().getFullYear())
+		const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString())
 
 		// Get all companies with their data
 		const companies = await prisma.company.findMany({
