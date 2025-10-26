@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 interface Ticket {
   id: string
+  ticketNumber: number
   title: string
   description?: string
   status: "OPEN" | "IN_PROGRESS" | "CLOSED"
