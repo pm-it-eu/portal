@@ -39,6 +39,7 @@ interface DashboardStats {
 
 interface RecentTicket {
   id: string
+  ticketNumber: string
   title: string
   status: string
   priority: string
