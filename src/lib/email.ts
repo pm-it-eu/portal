@@ -9,8 +9,8 @@ if (!process.env.SMTP_HOST) {
 // E-Mail-Transporter konfigurieren - Robuste SSL/TLS Konfiguration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
-  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
-  secure: false, // false für 587 (STARTTLS), true für 465 (SSL)
+  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465'),
+  secure: true, // true für 465 (SSL), false für 587 (STARTTLS)
   auth: {
     user: process.env.SMTP_USER || process.env.EMAIL_USER,
     pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
