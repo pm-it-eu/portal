@@ -307,6 +307,174 @@ async function main() {
     },
   })
 
+  // Invoice Created Template
+  await prisma.emailTemplate.upsert({
+    where: { name: 'invoice-created' },
+    update: {},
+    create: {
+      name: 'invoice-created',
+      subject: 'Rechnung #{{invoiceNumber}} - {{amount}}€',
+      htmlContent: `
+        <h2>Neue Rechnung erstellt</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>eine neue Rechnung wurde für Sie erstellt:</p>
+        <ul>
+          <li><strong>Rechnungsnummer:</strong> {{invoiceNumber}}</li>
+          <li><strong>Betrag:</strong> {{amount}}€</li>
+          <li><strong>Fälligkeitsdatum:</strong> {{dueDate}}</li>
+          <li><strong>Status:</strong> {{status}}</li>
+        </ul>
+        <p>Sie können Ihre Rechnungen hier einsehen: <a href="{{invoiceUrl}}">{{invoiceUrl}}</a></p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Neue Rechnung erstellt
+        
+        Hallo {{firstName}},
+        
+        eine neue Rechnung wurde für Sie erstellt:
+        
+        Rechnungsnummer: {{invoiceNumber}}
+        Betrag: {{amount}}€
+        Fälligkeitsdatum: {{dueDate}}
+        Status: {{status}}
+        
+        Sie können Ihre Rechnungen hier einsehen: {{invoiceUrl}}
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
+  // Invoice Paid Template
+  await prisma.emailTemplate.upsert({
+    where: { name: 'invoice-paid' },
+    update: {},
+    create: {
+      name: 'invoice-paid',
+      subject: 'Rechnung #{{invoiceNumber}} bezahlt - Vielen Dank!',
+      htmlContent: `
+        <h2>Rechnung bezahlt</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>vielen Dank für die Zahlung Ihrer Rechnung:</p>
+        <ul>
+          <li><strong>Rechnungsnummer:</strong> {{invoiceNumber}}</li>
+          <li><strong>Betrag:</strong> {{amount}}€</li>
+          <li><strong>Bezahlt am:</strong> {{paidAt}}</li>
+        </ul>
+        <p>Ihre Rechnung wurde erfolgreich beglichen.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Rechnung bezahlt
+        
+        Hallo {{firstName}},
+        
+        vielen Dank für die Zahlung Ihrer Rechnung:
+        
+        Rechnungsnummer: {{invoiceNumber}}
+        Betrag: {{amount}}€
+        Bezahlt am: {{paidAt}}
+        
+        Ihre Rechnung wurde erfolgreich beglichen.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
+  // Welcome Email Template
+  await prisma.emailTemplate.upsert({
+    where: { name: 'welcome' },
+    update: {},
+    create: {
+      name: 'welcome',
+      subject: 'Willkommen bei {{companyName}}!',
+      htmlContent: `
+        <h2>Willkommen bei {{companyName}}!</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>herzlich willkommen in unserem Kundenportal!</p>
+        <p>Ihr Account wurde erfolgreich erstellt:</p>
+        <ul>
+          <li><strong>E-Mail:</strong> {{email}}</li>
+          <li><strong>Firma:</strong> {{companyName}}</li>
+          <li><strong>Rolle:</strong> {{role}}</li>
+        </ul>
+        <p>Sie können sich hier anmelden: <a href="{{loginUrl}}">{{loginUrl}}</a></p>
+        <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Willkommen bei {{companyName}}!
+        
+        Hallo {{firstName}},
+        
+        herzlich willkommen in unserem Kundenportal!
+        
+        Ihr Account wurde erfolgreich erstellt:
+        
+        E-Mail: {{email}}
+        Firma: {{companyName}}
+        Rolle: {{role}}
+        
+        Sie können sich hier anmelden: {{loginUrl}}
+        
+        Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
+  // Maintenance Notification Template
+  await prisma.emailTemplate.upsert({
+    where: { name: 'maintenance-notification' },
+    update: {},
+    create: {
+      name: 'maintenance-notification',
+      subject: 'Wartungsmeldung: {{maintenanceTitle}}',
+      htmlContent: `
+        <h2>Wartungsmeldung</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>wir möchten Sie über eine geplante Wartung informieren:</p>
+        <ul>
+          <li><strong>Titel:</strong> {{maintenanceTitle}}</li>
+          <li><strong>Beschreibung:</strong> {{maintenanceDescription}}</li>
+          <li><strong>Geplant für:</strong> {{scheduledDate}}</li>
+          <li><strong>Geschätzte Dauer:</strong> {{estimatedDuration}}</li>
+          <li><strong>Status:</strong> {{status}}</li>
+        </ul>
+        <p>Falls Sie Fragen haben, kontaktieren Sie uns gerne.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Wartungsmeldung
+        
+        Hallo {{firstName}},
+        
+        wir möchten Sie über eine geplante Wartung informieren:
+        
+        Titel: {{maintenanceTitle}}
+        Beschreibung: {{maintenanceDescription}}
+        Geplant für: {{scheduledDate}}
+        Geschätzte Dauer: {{estimatedDuration}}
+        Status: {{status}}
+        
+        Falls Sie Fragen haben, kontaktieren Sie uns gerne.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
   console.log('Seed data created successfully!')
   console.log('Admin user:', admin.email)
   console.log('Client user:', client.email)
