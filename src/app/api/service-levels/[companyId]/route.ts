@@ -99,7 +99,6 @@ export async function POST(
     const serviceLevel = await prisma.serviceLevel.create({
       data: {
         name,
-        description,
         responseTime,
         resolutionTime,
         availability,

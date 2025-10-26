@@ -56,7 +56,7 @@ export function useTicketUpdates({ ticketId, ticket, setTicket, messageThreadRef
           })
           .catch(err => console.error("🔄 TICKET: Failed to update ticket:", err))
       } else {
-        console.log("🔄 TICKET: Skipping ticket poll - input focused:", activeElement?.tagName, activeElement?.className, (activeElement as HTMLElement)?.name)
+        console.log("🔄 TICKET: Skipping ticket poll - input focused:", activeElement?.tagName, activeElement?.className, (activeElement as HTMLInputElement)?.name)
       }
     }, 15000) // 15 Sekunden für noch weniger Störung
     

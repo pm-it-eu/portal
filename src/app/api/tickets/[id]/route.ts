@@ -202,7 +202,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 					// Sende E-Mail an jeden Company-User
 					for (const user of companyUsers) {
 						await sendTicketUpdatedNotification({
-							ticketId: currentTicket.id || id,
+							ticketId: id,
 							ticketNumber: currentTicket.ticketNumber,
 							customerEmail: user.email,
 							customerName: `${user.firstName} ${user.lastName}`,
