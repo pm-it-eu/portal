@@ -6,7 +6,7 @@ if (!process.env.SMTP_HOST) {
   dotenv.config()
 }
 
-// E-Mail-Transporter konfigurieren - Erweiterte SSL/TLS Konfiguration
+// E-Mail-Transporter konfigurieren - Robuste SSL/TLS Konfiguration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
   port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
@@ -16,11 +16,13 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // Für lokale Tests
-    ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA', // Moderne Cipher-Suites
-    minVersion: 'TLSv1.2', // Mindest TLS-Version
-    maxVersion: 'TLSv1.3' // Maximale TLS-Version
+    rejectUnauthorized: false,
+    // Keine expliziten Cipher-Suites - lassen wir Node.js entscheiden
   },
+  // Zusätzliche Optionen für bessere Kompatibilität
+  connectionTimeout: 60000, // 60 Sekunden Timeout
+  greetingTimeout: 30000, // 30 Sekunden Greeting Timeout
+  socketTimeout: 60000, // 60 Sekunden Socket Timeout
   // Anti-Spam Konfiguration
   pool: true, // Connection Pooling für bessere Reputation
   maxConnections: 5,
