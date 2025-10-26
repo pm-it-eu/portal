@@ -183,3 +183,6 @@ echo -e "${NC}"
 log "ESLint errors and warnings have been addressed! 🚀"
 log "The application should now build successfully."
 
+
+
+

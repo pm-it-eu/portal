@@ -55,3 +55,6 @@ echo "📍 Working directory: $PROJECT_DIR"
 echo "📁 NPM cache: $PROJECT_DIR/.npm-cache"
 echo "📁 NPM global: $PROJECT_DIR/.npm-global"
 
+
+
+

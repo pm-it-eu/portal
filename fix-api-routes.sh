@@ -56,3 +56,6 @@ echo -e "${NC}"
 
 log "All API routes have been updated for Next.js 15! 🚀"
 
+
+
+

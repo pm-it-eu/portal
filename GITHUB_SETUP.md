@@ -84,3 +84,6 @@ sudo systemctl restart nginx
 pm2 logs --lines 100
 ```
 
+
+
+

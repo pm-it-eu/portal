@@ -59,3 +59,6 @@ echo -e "${NC}"
 
 log "ESLint rules have been relaxed! 🚀"
 
+
+
+

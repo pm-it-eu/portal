@@ -195,3 +195,6 @@ echo "4. Start services"
 
 log "Upload preparation completed! 🚀"
 
+
+
+

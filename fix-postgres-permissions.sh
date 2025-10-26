@@ -88,3 +88,6 @@ echo -e "${NC}"
 
 log "PostgreSQL permissions fixed! 🚀"
 
+
+
+
