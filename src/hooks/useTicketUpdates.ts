@@ -21,7 +21,7 @@ export function useTicketUpdates({ ticketId, ticket, setTicket, messageThreadRef
       const isInputFocused = activeElement && (
         activeElement.tagName === 'INPUT' || 
         activeElement.tagName === 'TEXTAREA' ||
-        activeElement.contentEditable === 'true' ||
+        (activeElement as HTMLElement).contentEditable === 'true' ||
         activeElement.closest('[contenteditable="true"]') ||
         // Zusätzliche Prüfung für spezifische Elemente
         activeElement.closest('input[type="number"]') ||
@@ -56,7 +56,7 @@ export function useTicketUpdates({ ticketId, ticket, setTicket, messageThreadRef
           })
           .catch(err => console.error("🔄 TICKET: Failed to update ticket:", err))
       } else {
-        console.log("🔄 TICKET: Skipping ticket poll - input focused:", activeElement?.tagName, activeElement?.className, activeElement?.name)
+        console.log("🔄 TICKET: Skipping ticket poll - input focused:", activeElement?.tagName, activeElement?.className, (activeElement as HTMLElement)?.name)
       }
     }, 15000) // 15 Sekunden für noch weniger Störung
     

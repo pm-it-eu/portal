@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Berechne Gesamtsummen
     const totalWorkMinutes = workEntries.reduce((sum, entry) => sum + (entry.minutes || 0), 0)
-    const totalWorkAmount = workEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0)
+    const totalWorkAmount = workEntries.reduce((sum, entry) => sum + ((entry.hourlyRate || 0) * (entry.minutes || 0) / 60), 0)
     const totalUnbilledAmount = totalWorkAmount
 
     console.log(`📊 Unbilled Work für Firma ${session.user.companyId}:`, {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       id: workEntries[0].id,
       description: workEntries[0].description || '',
       minutes: workEntries[0].minutes || 0,
-      amount: workEntries[0].amount || 0,
+      amount: (workEntries[0].hourlyRate || 0) * (workEntries[0].minutes || 0) / 60,
       createdAt: workEntries[0].createdAt.toISOString(),
       ticket: workEntries[0].ticket
     } : undefined

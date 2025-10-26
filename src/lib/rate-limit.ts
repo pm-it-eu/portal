@@ -68,7 +68,7 @@ export async function checkRateLimit(
       const { success, limit, remaining, reset } = await rateLimiter.limit(identifier)
       
       if (!success) {
-        throw new Error(`Rate limit exceeded. Try again in ${Math.ceil((reset.getTime() - Date.now()) / 1000)} seconds.`)
+        throw new Error(`Rate limit exceeded. Try again in ${Math.ceil((reset - Date.now()) / 1000)} seconds.`)
       }
       
       return { success, limit, remaining, reset }
