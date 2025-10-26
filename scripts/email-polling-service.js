@@ -937,6 +937,20 @@ class EmailInboundService {
 async function startEmailPolling() {
   console.log('📧 E-Mail-Polling-Service gestartet')
   
+  // Prüfe zuerst ob E-Mail-Konfigurationen existieren
+  const initialConfigs = await prisma.emailConfig.findMany({
+    where: { isActive: true }
+  })
+
+  if (initialConfigs.length === 0) {
+    console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden - Service wird beendet')
+    console.log('💡 Erstellen Sie eine E-Mail-Konfiguration im Admin-Panel um den Service zu aktivieren')
+    await prisma.$disconnect()
+    process.exit(0)
+  }
+
+  console.log(`📧 ${initialConfigs.length} aktive E-Mail-Konfigurationen gefunden`)
+  
   // Kontinuierliches Polling mit konfigurierbarem Intervall
   const pollEmails = async () => {
     try {
@@ -945,7 +959,7 @@ async function startEmailPolling() {
       })
 
       if (configs.length === 0) {
-        console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden')
+        console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden - warte 5 Minuten...')
         return
       }
 
@@ -982,8 +996,12 @@ async function startEmailPolling() {
     const interval = await getPollingInterval()
     console.log(`📧 E-Mail-Polling läuft alle ${interval / 60000} Minuten`)
     
-    setInterval(async () => {
-      await pollEmails()
+    // Korrekte setInterval Implementierung mit Fehlerbehandlung
+    setInterval(() => {
+      pollEmails().catch(error => {
+        console.error('❌ Fehler beim E-Mail-Polling:', error)
+        // Script nicht beenden, nur loggen
+      })
     }, interval)
   }
 
