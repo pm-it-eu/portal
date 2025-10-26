@@ -1,16 +1,17 @@
 import nodemailer from 'nodemailer'
 
-// E-Mail-Transporter konfigurieren - SSL Port 465 mit Anti-Spam Konfiguration
+// E-Mail-Transporter konfigurieren - Flexible SSL/TLS Konfiguration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
-  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465'),
-  secure: true, // true für 465 (SSL), false für 587 (STARTTLS)
+  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
+  secure: false, // false für 587 (STARTTLS), true für 465 (SSL)
   auth: {
     user: process.env.SMTP_USER || process.env.EMAIL_USER,
     pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false // Für lokale Tests
+    rejectUnauthorized: false, // Für lokale Tests
+    ciphers: 'SSLv3' // Explizite Cipher-Suite
   },
   // Anti-Spam Konfiguration
   pool: true, // Connection Pooling für bessere Reputation
@@ -18,12 +19,7 @@ const transporter = nodemailer.createTransport({
   maxMessages: 100,
   rateDelta: 20000, // 20 Sekunden zwischen E-Mails
   rateLimit: 5, // Max 5 E-Mails pro Rate-Delta
-  // DKIM Signierung (falls verfügbar)
-  dkim: {
-    domainName: 'pm-it.eu',
-    keySelector: 'default',
-    privateKey: process.env.DKIM_PRIVATE_KEY || undefined
-  }
+  // DKIM Signierung deaktiviert (kann SSL-Probleme verursachen)
 })
 
 // Template-Variablen ersetzen
