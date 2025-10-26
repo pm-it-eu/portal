@@ -178,6 +178,135 @@ async function main() {
     },
   })
 
+  // Create email templates
+  await prisma.emailTemplate.upsert({
+    where: { name: 'ticket-created' },
+    update: {},
+    create: {
+      name: 'ticket-created',
+      subject: 'Neues Ticket #{{ticketNumber}} - {{ticketTitle}}',
+      htmlContent: `
+        <h2>Neues Ticket erstellt</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>Ihr Ticket wurde erfolgreich erstellt:</p>
+        <ul>
+          <li><strong>Ticket-Nummer:</strong> #{{ticketNumber}}</li>
+          <li><strong>Titel:</strong> {{ticketTitle}}</li>
+          <li><strong>Priorität:</strong> {{priority}}</li>
+          <li><strong>Status:</strong> {{status}}</li>
+          <li><strong>Erstellt am:</strong> {{createdAt}}</li>
+        </ul>
+        <p><strong>Beschreibung:</strong></p>
+        <p>{{description}}</p>
+        <p>Sie können Ihr Ticket hier einsehen: <a href="{{ticketUrl}}">{{ticketUrl}}</a></p>
+        <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Neues Ticket erstellt
+        
+        Hallo {{firstName}},
+        
+        Ihr Ticket wurde erfolgreich erstellt:
+        
+        Ticket-Nummer: #{{ticketNumber}}
+        Titel: {{ticketTitle}}
+        Priorität: {{priority}}
+        Status: {{status}}
+        Erstellt am: {{createdAt}}
+        
+        Beschreibung:
+        {{description}}
+        
+        Sie können Ihr Ticket hier einsehen: {{ticketUrl}}
+        
+        Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
+  await prisma.emailTemplate.upsert({
+    where: { name: 'ticket-updated' },
+    update: {},
+    create: {
+      name: 'ticket-updated',
+      subject: 'Ticket #{{ticketNumber}} wurde aktualisiert',
+      htmlContent: `
+        <h2>Ticket aktualisiert</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>Ihr Ticket #{{ticketNumber}} wurde aktualisiert:</p>
+        <ul>
+          <li><strong>Titel:</strong> {{ticketTitle}}</li>
+          <li><strong>Status:</strong> {{status}}</li>
+          <li><strong>Priorität:</strong> {{priority}}</li>
+          <li><strong>Letzte Aktualisierung:</strong> {{updatedAt}}</li>
+        </ul>
+        <p>Sie können Ihr Ticket hier einsehen: <a href="{{ticketUrl}}">{{ticketUrl}}</a></p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Ticket aktualisiert
+        
+        Hallo {{firstName}},
+        
+        Ihr Ticket #{{ticketNumber}} wurde aktualisiert:
+        
+        Titel: {{ticketTitle}}
+        Status: {{status}}
+        Priorität: {{priority}}
+        Letzte Aktualisierung: {{updatedAt}}
+        
+        Sie können Ihr Ticket hier einsehen: {{ticketUrl}}
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
+  await prisma.emailTemplate.upsert({
+    where: { name: 'ticket-closed' },
+    update: {},
+    create: {
+      name: 'ticket-closed',
+      subject: 'Ticket #{{ticketNumber}} wurde geschlossen',
+      htmlContent: `
+        <h2>Ticket geschlossen</h2>
+        <p>Hallo {{firstName}},</p>
+        <p>Ihr Ticket #{{ticketNumber}} wurde erfolgreich geschlossen:</p>
+        <ul>
+          <li><strong>Titel:</strong> {{ticketTitle}}</li>
+          <li><strong>Status:</strong> {{status}}</li>
+          <li><strong>Geschlossen am:</strong> {{closedAt}}</li>
+        </ul>
+        <p>Falls Sie weitere Fragen haben, können Sie gerne ein neues Ticket erstellen.</p>
+        <p>Mit freundlichen Grüßen<br>Ihr {{companyName}} Team</p>
+      `,
+      textContent: `
+        Ticket geschlossen
+        
+        Hallo {{firstName}},
+        
+        Ihr Ticket #{{ticketNumber}} wurde erfolgreich geschlossen:
+        
+        Titel: {{ticketTitle}}
+        Status: {{status}}
+        Geschlossen am: {{closedAt}}
+        
+        Falls Sie weitere Fragen haben, können Sie gerne ein neues Ticket erstellen.
+        
+        Mit freundlichen Grüßen
+        Ihr {{companyName}} Team
+      `,
+      isActive: true,
+    },
+  })
+
   console.log('Seed data created successfully!')
   console.log('Admin user:', admin.email)
   console.log('Client user:', client.email)
