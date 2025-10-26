@@ -5,10 +5,12 @@ module.exports = {
       script: 'npm',
       args: 'run start',
       cwd: './',
-      instances: 'max',
-      exec_mode: 'cluster',
+      instances: 1, // Nur eine Instanz
+      exec_mode: 'fork', // Fork-Modus statt Cluster
       watch: false,
-      max_memory_restart: '1G',
+      autorestart: true,
+      max_restarts: 5, // Maximal 5 Restarts
+      min_uptime: '10s', // Mindestens 10 Sekunden laufen
       env: {
         NODE_ENV: 'production'
       }
