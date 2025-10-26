@@ -3,23 +3,17 @@ module.exports = {
     {
       name: 'kundencenter-app',
       script: 'npm',
-      args: 'run dev',
+      args: 'run start',
       cwd: './',
+      instances: 'max',
+      exec_mode: 'cluster',
       watch: false,
-      env: {
-        NODE_ENV: 'development'
-      }
-    },
-    {
-      name: 'email-polling',
-      script: 'scripts/email-polling-service.js',
-      cwd: './',
-      autorestart: true,
-      watch: false,
+      max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production'
       }
     }
+    // Email-polling temporär deaktiviert bis E-Mail-Konfigurationen existieren
   ]
 }
 
