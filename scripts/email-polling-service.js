@@ -255,12 +255,7 @@ class EmailInboundService {
         }
       })
 
-      // Automatische Antwort-E-Mail senden
-      await this.sendTicketCreatedEmail(ticket, parsedEmail, companyId, user)
-
-      // E-Mail nach "Erstellt" Ordner verschieben
-      await this.moveEmailToFolder(parsedEmail.messageId, 'INBOX', 'Erstellt')
-
+      console.log(`✅ Neues Ticket #${ticket.ticketNumber} erstellt für ${parsedEmail.fromEmail}`)
       return ticket.id
     } catch (error) {
       console.error('Fehler beim Erstellen des Tickets:', error)
@@ -268,617 +263,16 @@ class EmailInboundService {
     }
   }
 
-  /**
-   * Prüft ob eine E-Mail eine Antwort auf ein bestehendes Ticket ist
-   */
-  async isReplyToExistingTicket(email) {
-    try {
-      // Prüfe verschiedene Reply-Indikatoren
-      const replyIndicators = [
-        'Re:',
-        'RE:',
-        'AW:',
-        'Fwd:',
-        'FWD:',
-        'Antwort:',
-        'Reply:'
-      ]
-
-      const subject = email.subject || ''
-      const isReplySubject = replyIndicators.some(indicator => 
-        subject.toLowerCase().startsWith(indicator.toLowerCase())
-      )
-
-      if (!isReplySubject) {
-        return false
-      }
-
-      // Suche nach bestehenden Tickets mit ähnlichem Betreff
-      const originalSubject = subject.replace(/^(Re:|RE:|AW:|Fwd:|FWD:|Antwort:|Reply:)\s*/i, '').trim()
-      
-      const existingTicket = await prisma.ticket.findFirst({
-        where: {
-          OR: [
-            { title: { contains: originalSubject } },
-            { title: { contains: subject } }
-          ]
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-
-      return !!existingTicket
-    } catch (error) {
-      console.error('Fehler beim Prüfen der Reply:', error)
-      return false
-    }
-  }
-
-  /**
-   * Behandelt eine Antwort auf ein bestehendes Ticket
-   */
-  async handleReplyToTicket(email) {
-    try {
-      // Finde das ursprüngliche Ticket
-      const originalSubject = email.subject.replace(/^(Re:|RE:|AW:|Fwd:|FWD:|Antwort:|Reply:)\s*/i, '').trim()
-      
-      const existingTicket = await prisma.ticket.findFirst({
-        where: {
-          OR: [
-            { title: { contains: originalSubject } },
-            { title: { contains: email.subject } }
-          ]
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-
-      if (!existingTicket) {
-        console.log('⚠️ Kein ursprüngliches Ticket gefunden für Antwort')
-        return
-      }
-
-      // Finde die ursprüngliche E-Mail
-      const originalEmail = await prisma.inboundEmail.findFirst({
-        where: {
-          ticketId: existingTicket.id,
-          isReply: false
-        },
-        orderBy: { receivedAt: 'asc' }
-      })
-
-      // Speichere die Antwort-E-Mail
-      const inboundEmail = await prisma.inboundEmail.create({
-        data: {
-          emailConfigId: this.config.id,
-          messageId: email.messageId,
-          fromEmail: email.fromEmail,
-          fromName: email.fromName,
-          toEmail: email.toEmail,
-          subject: email.subject,
-          content: email.content,
-          htmlContent: email.htmlContent,
-          attachments: email.attachments,
-          receivedAt: email.receivedAt,
-          isReply: true,
-          parentMessageId: originalEmail?.messageId,
-          companyId: existingTicket.companyId,
-          ticketId: existingTicket.id,
-          isProcessed: true,
-          processedAt: new Date()
-        }
-      })
-
-      // Füge Nachricht zum Ticket hinzu
-      await prisma.ticketMessage.create({
-        data: {
-          ticketId: existingTicket.id,
-          content: `E-Mail-Antwort von ${email.fromEmail}:\n\n${email.content}`,
-          authorId: 'system',
-          isSystemMessage: true
-        }
-      })
-
-      // Aktualisiere Ticket-Status (falls geschlossen, wieder öffnen)
-      if (existingTicket.status === 'CLOSED') {
-        await prisma.ticket.update({
-          where: { id: existingTicket.id },
-          data: { 
-            status: 'OPEN',
-            updatedAt: new Date()
-          }
-        })
-      }
-
-      // E-Mail nach "Erstellt" Ordner verschieben (auch Antworten)
-      await this.moveEmailToFolder(email.messageId, 'INBOX', 'Erstellt')
-
-      console.log(`✅ Antwort zu Ticket #${existingTicket.ticketNumber} hinzugefügt`)
-    } catch (error) {
-      console.error('Fehler beim Verarbeiten der Ticket-Antwort:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Stellt sicher, dass ein Ordner existiert
-   */
-  async ensureFolderExists(folderName) {
-    try {
-      const connection = await this.connectToImap()
-      
-      // Ordner-Namen mit INBOX-Präfix formatieren
-      const fullFolderName = folderName.startsWith('INBOX') ? folderName : `INBOX.${folderName}`
-      
-      try {
-        // Prüfe ob Ordner existiert
-        await connection.openBox(fullFolderName)
-        await this.log('DEBUG', `Ordner "${fullFolderName}" existiert bereits`)
-      } catch (error) {
-        // Ordner existiert nicht, erstelle ihn
-        await connection.addBox(fullFolderName)
-        await this.log('INFO', `Ordner "${fullFolderName}" erstellt`)
-      } finally {
-        connection.end()
-      }
-    } catch (error) {
-      await this.log('ERROR', `Fehler beim Erstellen des Ordners "${folderName}"`, null, error)
-    }
-  }
-
-  /**
-   * Verschiebt eine E-Mail in einen anderen Ordner
-   */
-  async moveEmailToFolder(messageId, fromFolder, toFolder) {
-    try {
-      // Temporär deaktiviert - E-Mail-Verschiebung funktioniert nicht mit imap-simple
-      await this.log('INFO', `E-Mail-Verschiebung temporär deaktiviert: ${messageId} von ${fromFolder} nach ${toFolder}`)
-      console.log(`📁 E-Mail-Verschiebung deaktiviert: ${messageId} sollte nach "${toFolder}" verschoben werden`)
-    } catch (error) {
-      await this.log('ERROR', `Fehler beim Verschieben der E-Mail ${messageId}`, null, error)
-    }
-  }
-
-  /**
-   * Sendet automatische Antwort-E-Mail für neue Tickets
-   */
-  async sendTicketCreatedEmail(ticket, parsedEmail, companyId, user = null) {
-    try {
-      // Lade Firmen-Informationen
-      const company = await prisma.company.findUnique({
-        where: { id: companyId }
-      })
-
-      if (!company) {
-        console.log('⚠️ Firma nicht gefunden für E-Mail-Versand')
-        return
-      }
-
-      // Lade E-Mail-Template
-      const template = await prisma.emailTemplate.findUnique({
-        where: { name: 'ticket-created' }
-      })
-
-      if (!template || !template.isActive) {
-        console.log('⚠️ Ticket-created Template nicht gefunden oder inaktiv')
-        return
-      }
-
-      // E-Mail senden über OUTBOUND-Konfiguration aus .env
-      const nodemailer = require('nodemailer')
-      
-      // Prüfe ob SMTP-Konfiguration in .env vorhanden ist
-      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.log('⚠️ SMTP-Konfiguration in .env nicht vollständig')
-        console.log('   Benötigt: SMTP_HOST, SMTP_USER, SMTP_PASS')
-        return
-      }
-      
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      })
-
-      // Template-Variablen ersetzen
-      let subject = template.subject
-      let content = template.textContent
-
-      // Deutsche Übersetzungen für Priorität und Status
-      const priorityTranslations = {
-        'LOW': 'Niedrig',
-        'MEDIUM': 'Normal',
-        'HIGH': 'Hoch',
-        'URGENT': 'Dringend'
-      }
-      
-      const statusTranslations = {
-        'OPEN': 'Offen',
-        'IN_PROGRESS': 'In Bearbeitung',
-        'WAITING_FOR_CUSTOMER': 'Warten auf Kunden',
-        'CLOSED': 'Geschlossen'
-      }
-
-      // Bestimme den Namen: Benutzer aus DB oder E-Mail-Parser
-      const customerName = user ? `${user.firstName} ${user.lastName}`.trim() : (parsedEmail.fromName || 'Kunde')
-      
-      console.log('📧 E-Mail-Template Variablen:')
-      console.log('   Benutzer aus DB:', user ? `${user.firstName} ${user.lastName}` : 'Nicht gefunden')
-      console.log('   E-Mail-Parser Name:', parsedEmail.fromName)
-      console.log('   Finaler Name:', customerName)
-
-      const variables = {
-        ticketNumber: ticket.ticketNumber,
-        ticketTitle: ticket.title,
-        firstName: customerName,
-        customerName: customerName,
-        companyName: company.name,
-        ticketId: ticket.id,
-        supportEmail: process.env.EMAIL_FROM || 'support@pm-it.eu',
-        priority: priorityTranslations[ticket.priority] || 'Normal',
-        status: statusTranslations[ticket.status] || 'Offen',
-        createdAt: new Date(ticket.createdAt).toLocaleString('de-DE', {
-          timeZone: 'Europe/Berlin',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        ticketUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/tickets/${ticket.id}`,
-        description: ticket.description || 'Keine Beschreibung verfügbar'
-      }
-
-      console.log('🔧 Ersetze Template-Variablen:')
-      Object.entries(variables).forEach(([key, value]) => {
-        const regex = new RegExp(`{{${key}}}`, 'g')
-        const oldSubject = subject
-        const oldContent = content
-        
-        subject = subject.replace(regex, String(value || ''))
-        content = content.replace(regex, String(value || ''))
-        
-        if (oldSubject !== subject || oldContent !== content) {
-          console.log(`   {{${key}}} → ${value}`)
-        }
-      })
-      
-      console.log('📧 Finaler E-Mail-Inhalt:')
-      console.log(`   Betreff: ${subject}`)
-      console.log(`   Inhalt: ${content.substring(0, 200)}...`)
-
-      const mailOptions = {
-        from: `${process.env.SMTP_USER} <${process.env.SMTP_USER}>`,
-        to: parsedEmail.fromEmail,
-        subject: subject,
-        text: content,
-      }
-
-      console.log(`📧 Sende automatische Antwort an ${parsedEmail.fromEmail}...`)
-      console.log(`📧 SMTP-Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'}`)
-      console.log(`📧 SMTP-User: ${process.env.SMTP_USER}`)
-      
-      const result = await transporter.sendMail(mailOptions)
-      console.log(`✅ Automatische Antwort erfolgreich gesendet: ${result.messageId}`)
-      
-      // Logge den Erfolg
-      await this.log('INFO', `Automatische Antwort gesendet an ${parsedEmail.fromEmail}`, {
-        ticketNumber: ticket.ticketNumber,
-        messageId: result.messageId
-      })
-      
-    } catch (error) {
-      console.error('❌ Fehler beim Senden der automatischen Antwort:', error)
-      
-      // Logge den Fehler
-      await this.log('ERROR', `Fehler beim Senden der automatischen Antwort: ${error.message}`, {
-        ticketNumber: ticket.ticketNumber,
-        error: error.message,
-        stack: error.stack
-      })
-    }
-  }
-
-  /**
-   * Spam-Filter für E-Mails
-   */
-  async checkSpam(email) {
-    try {
-      const spamIndicators = {
-        // Spam-Schlüsselwörter im Betreff
-        subjectSpam: [
-          'viagra', 'cialis', 'lottery', 'winner', 'congratulations',
-          'urgent', 'act now', 'limited time', 'free money',
-          'click here', 'buy now', 'discount', 'sale'
-        ],
-        // Spam-Schlüsselwörter im Inhalt
-        contentSpam: [
-          'make money', 'work from home', 'get rich', 'investment',
-          'crypto', 'bitcoin', 'forex', 'trading', 'guaranteed'
-        ],
-        // Verdächtige E-Mail-Domains
-        suspiciousDomains: [
-          'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'
-        ],
-        // Verdächtige Absender-Muster
-        suspiciousSenders: [
-          'noreply@', 'no-reply@', 'donotreply@', 'automated@'
-        ]
-      }
-
-      const subject = (email.subject || '').toLowerCase()
-      const content = (email.content || '').toLowerCase()
-      const fromEmail = (email.fromEmail || '').toLowerCase()
-
-      // Prüfe Spam-Schlüsselwörter im Betreff
-      for (const keyword of spamIndicators.subjectSpam) {
-        if (subject.includes(keyword)) {
-          return { isSpam: true, reason: `Spam-Schlüsselwort im Betreff: ${keyword}` }
-        }
-      }
-
-      // Prüfe Spam-Schlüsselwörter im Inhalt
-      for (const keyword of spamIndicators.contentSpam) {
-        if (content.includes(keyword)) {
-          return { isSpam: true, reason: `Spam-Schlüsselwort im Inhalt: ${keyword}` }
-        }
-      }
-
-      // Prüfe verdächtige Absender
-      for (const pattern of spamIndicators.suspiciousSenders) {
-        if (fromEmail.includes(pattern)) {
-          return { isSpam: true, reason: `Verdächtiger Absender: ${pattern}` }
-        }
-      }
-
-      // Prüfe auf zu viele Großbuchstaben
-      const upperCaseRatio = (subject.match(/[A-Z]/g) || []).length / subject.length
-      if (upperCaseRatio > 0.5 && subject.length > 10) {
-        return { isSpam: true, reason: 'Zu viele Großbuchstaben im Betreff' }
-      }
-
-      // Prüfe auf verdächtige Zeichen
-      const suspiciousChars = /[!]{3,}|[$]{2,}|[*]{3,}/g
-      if (suspiciousChars.test(subject)) {
-        return { isSpam: true, reason: 'Verdächtige Zeichen im Betreff' }
-      }
-
-      return { isSpam: false, reason: null }
-    } catch (error) {
-      console.error('Fehler beim Spam-Check:', error)
-      return { isSpam: false, reason: null }
-    }
-  }
-
-  /**
-   * E-Mail-Validierung
-   */
-  async validateEmail(email) {
-    try {
-      // E-Mail-Adresse validieren
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(email.fromEmail)) {
-        return { isValid: false, reason: 'Ungültige E-Mail-Adresse' }
-      }
-
-      // Betreff validieren
-      if (!email.subject || email.subject.trim().length === 0) {
-        return { isValid: false, reason: 'Leerer Betreff' }
-      }
-
-      if (email.subject.length > 200) {
-        return { isValid: false, reason: 'Betreff zu lang' }
-      }
-
-      // Inhalt validieren
-      if (!email.content || email.content.trim().length === 0) {
-        return { isValid: false, reason: 'Leerer E-Mail-Inhalt' }
-      }
-
-      if (email.content.length > 10000) {
-        return { isValid: false, reason: 'E-Mail-Inhalt zu lang' }
-      }
-
-      // Prüfe auf verdächtige Anhänge
-      if (email.attachments && email.attachments.length > 5) {
-        return { isValid: false, reason: 'Zu viele Anhänge' }
-      }
-
-      // Prüfe auf verdächtige Dateitypen
-      if (email.attachments) {
-        const dangerousExtensions = ['.exe', '.bat', '.cmd', '.scr', '.pif', '.com']
-        for (const attachment of email.attachments) {
-          const filename = attachment.filename || ''
-          const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'))
-          if (dangerousExtensions.includes(extension)) {
-            return { isValid: false, reason: `Gefährlicher Anhang: ${extension}` }
-          }
-        }
-      }
-
-      return { isValid: true, reason: null }
-    } catch (error) {
-      console.error('Fehler bei der E-Mail-Validierung:', error)
-      return { isValid: false, reason: 'Validierungsfehler' }
-    }
-  }
-
-  /**
-   * Behandelt Spam-E-Mails
-   */
-  async handleSpamEmail(email, reason) {
-    try {
-      // Spam-E-Mail in Datenbank speichern (markiert als Spam)
-      await prisma.inboundEmail.create({
-        data: {
-          emailConfigId: this.config.id,
-          messageId: email.messageId,
-          fromEmail: email.fromEmail,
-          fromName: email.fromName,
-          toEmail: email.toEmail,
-          subject: email.subject,
-          content: email.content,
-          htmlContent: email.htmlContent,
-          attachments: email.attachments,
-          receivedAt: email.receivedAt,
-          isProcessed: true,
-          processedAt: new Date()
-        }
-      })
-
-      console.log(`🚫 Spam-E-Mail gespeichert: ${reason}`)
-    } catch (error) {
-      console.error('Fehler beim Speichern der Spam-E-Mail:', error)
-    }
-  }
-
-  /**
-   * Behandelt ungültige E-Mails
-   */
-  async handleInvalidEmail(email, reason) {
-    try {
-      // Ungültige E-Mail in Datenbank speichern
-      await prisma.inboundEmail.create({
-        data: {
-          emailConfigId: this.config.id,
-          messageId: email.messageId,
-          fromEmail: email.fromEmail,
-          fromName: email.fromName,
-          toEmail: email.toEmail,
-          subject: email.subject,
-          content: email.content,
-          htmlContent: email.htmlContent,
-          attachments: email.attachments,
-          receivedAt: email.receivedAt,
-          isProcessed: true,
-          processedAt: new Date()
-        }
-      })
-
-      console.log(`❌ Ungültige E-Mail gespeichert: ${reason}`)
-    } catch (error) {
-      console.error('Fehler beim Speichern der ungültigen E-Mail:', error)
-    }
-  }
-
-  /**
-   * Logging-Methode für E-Mail-Ereignisse
-   */
-  async log(level, message, details = null, error = null) {
-    try {
-      // Prüfe ob Prisma-Client verfügbar ist
-      if (!prisma) {
-        console.error('Prisma-Client nicht verfügbar für Logging')
-        return
-      }
-
-      const logData = {
-        emailConfigId: this.config.id,
-        level,
-        message,
-        details,
-        errorCode: error?.code || null,
-        stackTrace: error?.stack || null,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          configName: this.config.name
-        }
-      }
-
-      if (prisma && prisma.emailLog) {
-        await prisma.emailLog.create({
-          data: logData
-        })
-      } else {
-        console.error('Prisma emailLog nicht verfügbar')
-      }
-
-      // Console-Logging für Development
-      const timestamp = new Date().toISOString()
-      const logMessage = `[${timestamp}] [${level}] ${message}`
-      
-      switch (level) {
-        case 'ERROR':
-          console.error(logMessage, error)
-          break
-        case 'WARN':
-          console.warn(logMessage)
-          break
-        case 'DEBUG':
-          console.debug(logMessage)
-          break
-        default:
-          console.log(logMessage)
-      }
-    } catch (logError) {
-      console.error('Fehler beim Logging:', logError)
-    }
-  }
-
-  /**
-   * Fehlerbehandlung mit Logging
-   */
-  async handleError(error, context, email = null) {
-    const errorDetails = {
-      error: error.message,
-      stack: error.stack,
-      context,
-      email: email ? {
-        fromEmail: email.fromEmail,
-        subject: email.subject,
-        messageId: email.messageId
-      } : null
-    }
-
-    await this.log('ERROR', `Fehler in ${context}: ${error.message}`, errorDetails, error)
-  }
-
   async runPollingCycle() {
     try {
-      await this.log('INFO', `Starte E-Mail-Polling für ${this.config.name}`, {
-        configId: this.config.id,
-        configName: this.config.name
-      })
+      console.log(`📧 Starte E-Mail-Polling für ${this.config.name}`)
 
       const emails = await this.fetchEmails()
-      await this.log('INFO', `${emails.length} neue E-Mails gefunden`, {
-        emailCount: emails.length,
-        configId: this.config.id
-      })
-
-      // Erstelle Ordner falls nicht vorhanden
-      await this.ensureFolderExists('Erstellt')
-      await this.ensureFolderExists('Spam')
-      await this.ensureFolderExists('Ungültig')
+      console.log(`📧 ${emails.length} neue E-Mails gefunden`)
 
       for (const email of emails) {
         try {
-          // Spam-Filter prüfen
-          const spamCheck = await this.checkSpam(email)
-          if (spamCheck.isSpam) {
-            console.log(`🚫 Spam-E-Mail erkannt von ${email.fromEmail}: ${spamCheck.reason}`)
-            await this.handleSpamEmail(email, spamCheck.reason)
-            // Spam-E-Mail nach "Spam" Ordner verschieben
-            await this.moveEmailToFolder(email.messageId, 'INBOX', 'Spam')
-            continue
-          }
-
-          // E-Mail-Validierung
-          const validationCheck = await this.validateEmail(email)
-          if (!validationCheck.isValid) {
-            console.log(`❌ Ungültige E-Mail von ${email.fromEmail}: ${validationCheck.reason}`)
-            await this.handleInvalidEmail(email, validationCheck.reason)
-            // Ungültige E-Mail nach "Ungültig" Ordner verschieben
-            await this.moveEmailToFolder(email.messageId, 'INBOX', 'Ungültig')
-            continue
-          }
-
-          // Prüfe ob E-Mail bereits verarbeitet wurde (für alle E-Mails)
+          // Prüfe ob E-Mail bereits verarbeitet wurde
           const existingEmail = await prisma.inboundEmail.findUnique({
             where: {
               messageId: email.messageId
@@ -886,39 +280,20 @@ class EmailInboundService {
           })
 
           if (existingEmail) {
-            await this.log('DEBUG', `E-Mail ${email.messageId} bereits verarbeitet, verschiebe nach "Erstellt"`)
-            // E-Mail nach "Erstellt" Ordner verschieben (auch wenn bereits verarbeitet)
-            await this.moveEmailToFolder(email.messageId, 'INBOX', 'Erstellt')
-            console.log(`📁 Bereits verarbeitete E-Mail nach "Erstellt" Ordner verschoben`)
+            console.log(`📧 E-Mail ${email.messageId} bereits verarbeitet`)
             continue
           }
           
-          // E-Mail-Reply-Verarbeitung deaktiviert - nur neue Tickets werden erstellt
-          // Prüfe ob es eine Antwort auf ein bestehendes Ticket ist
-          const isReply = await this.isReplyToExistingTicket(email)
-          
-          if (isReply) {
-            // E-Mail-Reply-Verarbeitung deaktiviert
-            console.log(`📧 E-Mail-Reply von ${email.fromEmail} ignoriert (nur System-Antworten erlaubt)`)
-            // E-Mail nach "Erstellt" Ordner verschieben (aber nicht verarbeiten)
-            await this.moveEmailToFolder(email.messageId, 'INBOX', 'Erstellt')
-            console.log(`📁 E-Mail-Reply nach "Erstellt" Ordner verschoben`)
-          } else {
-            const inboundEmailId = await this.saveEmailToDatabase(email)
-            const companyId = await this.findCompanyByEmail(email.fromEmail)
+          const inboundEmailId = await this.saveEmailToDatabase(email)
+          const companyId = await this.findCompanyByEmail(email.fromEmail)
 
-            if (companyId) {
-              await this.createTicketFromEmail(inboundEmailId, companyId, email)
-              console.log(`✅ Neues Ticket erstellt für ${email.fromEmail}`)
-              // E-Mail nach "Erstellt" Ordner verschieben
-              await this.moveEmailToFolder(email.messageId, 'INBOX', 'Erstellt')
-              console.log(`📁 Neue E-Mail nach "Erstellt" Ordner verschoben`)
-            } else {
-              console.log(`⚠️ Keine Firma gefunden für ${email.fromEmail}`)
-            }
+          if (companyId) {
+            await this.createTicketFromEmail(inboundEmailId, companyId, email)
+          } else {
+            console.log(`⚠️ Keine Firma gefunden für ${email.fromEmail}`)
           }
         } catch (error) {
-          await this.handleError(error, 'E-Mail-Verarbeitung', email)
+          console.error('Fehler bei E-Mail-Verarbeitung:', error)
         }
       }
 
@@ -927,9 +302,9 @@ class EmailInboundService {
         data: { lastPolledAt: new Date() }
       })
 
-      await this.log('INFO', `E-Mail-Polling abgeschlossen für ${this.config.name}`)
+      console.log(`✅ E-Mail-Polling abgeschlossen für ${this.config.name}`)
     } catch (error) {
-      await this.handleError(error, 'E-Mail-Polling-Zyklus')
+      console.error('Fehler beim E-Mail-Polling-Zyklus:', error)
     }
   }
 }
@@ -937,40 +312,52 @@ class EmailInboundService {
 async function startEmailPolling() {
   console.log('📧 E-Mail-Polling-Service gestartet')
   
-  // Prüfe zuerst ob E-Mail-Konfigurationen existieren
-  const initialConfigs = await prisma.emailConfig.findMany({
+  // Prüfe ob E-Mail-Konfigurationen existieren
+  const configs = await prisma.emailConfig.findMany({
     where: { isActive: true }
   })
 
-  if (initialConfigs.length === 0) {
-    console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden - Service wird beendet')
+  if (configs.length === 0) {
+    console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden')
     console.log('💡 Erstellen Sie eine E-Mail-Konfiguration im Admin-Panel um den Service zu aktivieren')
-    await prisma.$disconnect()
-    process.exit(0)
+    console.log('⏰ Service wartet 5 Minuten und prüft erneut...')
+    
+    // Warte 5 Minuten und prüfe erneut
+    setInterval(async () => {
+      try {
+        const newConfigs = await prisma.emailConfig.findMany({
+          where: { isActive: true }
+        })
+        
+        if (newConfigs.length > 0) {
+          console.log(`📧 ${newConfigs.length} E-Mail-Konfigurationen gefunden - starte Polling...`)
+          await startPollingWithConfigs(newConfigs)
+        }
+      } catch (error) {
+        console.error('❌ Fehler beim Prüfen der E-Mail-Konfigurationen:', error)
+      }
+    }, 5 * 60 * 1000) // 5 Minuten
+    
+    return // Beende die Funktion, aber lasse den Prozess laufen
   }
 
-  console.log(`📧 ${initialConfigs.length} aktive E-Mail-Konfigurationen gefunden`)
-  
-  // Kontinuierliches Polling mit konfigurierbarem Intervall
+  console.log(`📧 ${configs.length} aktive E-Mail-Konfigurationen gefunden`)
+  await startPollingWithConfigs(configs)
+}
+
+// Funktion für Polling mit Konfigurationen
+async function startPollingWithConfigs(configs) {
+  console.log(`📧 Starte Polling für ${configs.length} E-Mail-Konfigurationen...`)
+
+  // Polling-Funktion
   const pollEmails = async () => {
     try {
-      const configs = await prisma.emailConfig.findMany({
-        where: { isActive: true }
-      })
-
-      if (configs.length === 0) {
-        console.log('📧 Keine aktiven E-Mail-Konfigurationen gefunden - warte 5 Minuten...')
-        return
-      }
-
-      console.log(`📧 Polling ${configs.length} E-Mail-Konfigurationen...`)
-
       for (const config of configs) {
         const service = new EmailInboundService(config)
         await service.runPollingCycle()
       }
     } catch (error) {
-      console.error('Fehler beim E-Mail-Polling:', error)
+      console.error('❌ Fehler beim E-Mail-Polling:', error)
     }
   }
 
@@ -992,20 +379,16 @@ async function startEmailPolling() {
   }
 
   // Kontinuierliches Polling mit dynamischem Intervall
-  const startPolling = async () => {
-    const interval = await getPollingInterval()
-    console.log(`📧 E-Mail-Polling läuft alle ${interval / 60000} Minuten`)
-    
-    // Korrekte setInterval Implementierung mit Fehlerbehandlung
-    setInterval(() => {
-      pollEmails().catch(error => {
-        console.error('❌ Fehler beim E-Mail-Polling:', error)
-        // Script nicht beenden, nur loggen
-      })
-    }, interval)
-  }
-
-  await startPolling()
+  const interval = await getPollingInterval()
+  console.log(`📧 E-Mail-Polling läuft alle ${interval / 60000} Minuten`)
+  
+  // Korrekte setInterval Implementierung mit Fehlerbehandlung
+  setInterval(() => {
+    pollEmails().catch(error => {
+      console.error('❌ Fehler beim E-Mail-Polling:', error)
+      // Script nicht beenden, nur loggen
+    })
+  }, interval)
 }
 
 // Graceful Shutdown
@@ -1031,14 +414,10 @@ process.on('SIGTERM', async () => {
 if (require.main === module) {
   startEmailPolling()
     .then(async () => {
-      console.log('✅ E-Mail-Polling abgeschlossen')
-      if (prisma) {
-        await prisma.$disconnect()
-      }
-      process.exit(0)
+      console.log('✅ E-Mail-Polling Service läuft')
     })
     .catch(async (error) => {
-      console.error('❌ Fehler beim E-Mail-Polling:', error)
+      console.error('❌ Fehler beim Starten des E-Mail-Polling:', error)
       if (prisma) {
         await prisma.$disconnect()
       }

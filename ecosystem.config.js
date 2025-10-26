@@ -12,8 +12,17 @@ module.exports = {
       env: {
         NODE_ENV: 'production'
       }
+    },
+    {
+      name: 'email-polling',
+      script: 'scripts/email-polling-service.js',
+      cwd: './',
+      autorestart: false, // WICHTIG: Nicht automatisch neu starten
+      watch: false,
+      env: {
+        NODE_ENV: 'production'
+      }
     }
-    // Email-polling temporär deaktiviert bis E-Mail-Konfigurationen existieren
   ]
 }
 
