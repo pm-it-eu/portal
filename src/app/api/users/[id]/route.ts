@@ -157,6 +157,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{id: strin
       }
     }
 
+    // Delete user (cascade deletes will handle related records)
     await prisma.user.delete({
       where: { id }
     })

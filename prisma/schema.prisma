@@ -190,7 +190,7 @@ model TicketMessage {
   isInternalNote Boolean  @default(false)
   isSystemMessage Boolean @default(false)
   authorId       String
-  author         User     @relation(fields: [authorId], references: [id])
+  author         User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 
   @@map("ticket_messages")
@@ -257,7 +257,7 @@ model VolumeAdjustment {
   comment        String
   type           VolumeAdjustmentType
   createdById    String
-  createdBy      User                  @relation(fields: [createdById], references: [id])
+  createdBy      User                  @relation(fields: [createdById], references: [id], onDelete: Cascade)
   createdAt      DateTime              @default(now())
 
   @@map("volume_adjustments")
