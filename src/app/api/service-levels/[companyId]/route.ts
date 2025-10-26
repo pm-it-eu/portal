@@ -99,9 +99,12 @@ export async function POST(
     const serviceLevel = await prisma.serviceLevel.create({
       data: {
         name,
-        responseTime,
-        resolutionTime,
-        availability,
+        timeVolumeMinutes: responseTime * 60, // Convert hours to minutes
+        remainingMinutes: responseTime * 60,
+        hourlyRate: 0, // Default rate
+        renewalType: 'MONTHLY',
+        lastRenewedAt: new Date(),
+        nextRenewalAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         companyId
       },
       include: {
