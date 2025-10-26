@@ -1,0 +1,366 @@
+// This is your Prisma schterminal_session_4138b0e6-4833-45c9-9bb7-b5efd296b7a7ema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+}
+
+enum ServiceLevelRenewalType {
+  MONTHLY
+  YEARLY
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceType {
+  SYSTEM_UPDATE
+  SECURITY_PATCH
+  HARDWARE_MAINTENANCE
+  SOFTWARE_UPDATE
+  BACKUP_MAINTENANCE
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole
+  companyId String?
+  phone     String?
+  
+  // Notification Settings
+  emailNotifications     Boolean @default(true)
+  ticketUpdates          Boolean @default(true)
+  billingAlerts          Boolean @default(true)
+  serviceLevelWarnings   Boolean @default(true)
+  
+  company   Company? @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ticketMessages TicketMessage[]
+  notifications  Notification[]
+  volumeAdjustments VolumeAdjustment[]
+
+  @@map("users")
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  email        String
+  phone        String?
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  users        User[]
+  tickets      Ticket[]
+  invoices     Invoice[]
+  serviceLevel ServiceLevel?
+  customOptions CompanyCustomOption[]
+  inboundEmails InboundEmail[]
+  maintenanceWindows MaintenanceWindow[]
+
+  @@map("companies")
+}
+
+model ServiceLevel {
+  id                String                    @id @default(cuid())
+  companyId         String                    @unique
+  company           Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String                    // z.B. "Standard Support"
+  timeVolumeMinutes Int                       // z.B. 480 für 8 Stunden
+  remainingMinutes  Int                       // Verbleibendes Volumen
+  hourlyRate        Float                     // Stundensatz für Überschreitungen
+  renewalType       ServiceLevelRenewalType
+  startDate         DateTime                  @default(now()) // Startdatum für automatische Erneuerung
+  lastRenewedAt     DateTime
+  nextRenewalAt     DateTime
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  // Relations
+  volumeAdjustments VolumeAdjustment[]
+
+  @@map("service_levels")
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model CustomOption {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  price        Float
+  billingCycle BillingCycle @default(MONTHLY)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  companies    CompanyCustomOption[]
+
+  @@map("custom_options")
+}
+
+model CompanyCustomOption {
+  id            String       @id @default(cuid())
+  companyId     String
+  customOptionId String
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customOption  CustomOption @relation(fields: [customOptionId], references: [id], onDelete: Cascade)
+  activatedAt   DateTime     @default(now())
+  deactivatedAt DateTime?    // Falls gekündigt
+  isBilled      Boolean      @default(false) // Bereits abgerechnet
+  billedAt      DateTime?    // Wann abgerechnet
+  createdAt     DateTime     @default(now())
+
+  @@unique([companyId, customOptionId])
+  @@map("company_custom_options")
+}
+
+model Ticket {
+  id           String         @id @default(cuid())
+  ticketNumber Int            @unique
+  title        String
+  description  String?
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  companyId    String
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  messages     TicketMessage[]
+  workEntries  WorkEntry[]
+  inboundEmails InboundEmail[]
+
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id             String   @id @default(cuid())
+  ticketId       String
+  ticket         Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  content        String
+  isInternalNote Boolean  @default(false)
+  isSystemMessage Boolean @default(false)
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@map("ticket_messages")
+}
+
+model WorkEntry {
+  id                String        @id @default(cuid())
+  ticketId         String
+  ticket           Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  minutes          Int           // Eingegebene Minuten
+  roundedMinutes   Int           // Immer auf 15 Min gerundet
+  description      String
+  hourlyRate       Float?       // Nur gesetzt wenn abrechenbar
+  totalAmount      Float?       // roundedMinutes * hourlyRate (nur wenn abrechenbar)
+  isFromIncludedVolume Boolean   @default(true)
+  isBilled         Boolean      @default(false) // Bereits abgerechnet
+  billedAt         DateTime?    // Wann abgerechnet
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("work_entries")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  amount        Float
+  dueDate       DateTime
+  status        InvoiceStatus @default(OPEN)
+  paidAt        DateTime?     // Wann bezahlt
+  filePath      String?       // PDF file path
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("invoices")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   // 'ticket_message', 'invoice', etc.
+  relatedId String?  // ID of related ticket, invoice, etc.
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+enum VolumeAdjustmentType {
+  ADD
+  SUBTRACT
+}
+
+model VolumeAdjustment {
+  id             String                @id @default(cuid())
+  serviceLevelId String
+  serviceLevel   ServiceLevel          @relation(fields: [serviceLevelId], references: [id], onDelete: Cascade)
+  amount         Int                   // Minuten
+  comment        String
+  type           VolumeAdjustmentType
+  createdById    String
+  createdBy      User                  @relation(fields: [createdById], references: [id])
+  createdAt      DateTime              @default(now())
+
+  @@map("volume_adjustments")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  subject     String
+  htmlContent String
+  textContent String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("email_templates")
+}
+
+model EmailConfig {
+  id                String   @id @default(cuid())
+  name              String   @unique // z.B. "Support E-Mail"
+  emailAddress      String   // support@pm-it.eu
+  imapHost          String   // imap.gmail.com
+  imapPort          Int      // 993
+  imapSecure        Boolean  @default(true) // SSL/TLS
+  imapUser          String   // E-Mail-Adresse
+  imapPassword      String   // App-Passwort
+  smtpHost          String?  // smtp.gmail.com
+  smtpPort          Int?     // 587
+  smtpSecure         Boolean  @default(true)
+  smtpUser          String?  // E-Mail-Adresse
+  smtpPassword      String?  // App-Passwort
+  isActive          Boolean  @default(true)
+  pollingInterval   Int      @default(5) // Minuten
+  lastPolledAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  inboundEmails     InboundEmail[]
+  emailLogs         EmailLog[]
+  
+  @@map("email_configs")
+}
+
+model InboundEmail {
+  id              String     @id @default(cuid())
+  emailConfigId   String
+  emailConfig     EmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  messageId       String     @unique // E-Mail Message-ID
+  fromEmail       String     // Absender E-Mail
+  fromName        String?    // Absender Name
+  toEmail         String     // Empfänger E-Mail
+  subject         String     // Betreff
+  content         String     // E-Mail Inhalt
+  htmlContent     String?    // HTML Inhalt
+  attachments     Json?      // Anhänge als JSON
+  receivedAt      DateTime   // Wann empfangen
+  processedAt     DateTime?  // Wann verarbeitet
+  isProcessed     Boolean    @default(false)
+  companyId       String?    // Zuordnung zu Firma
+  company         Company?   @relation(fields: [companyId], references: [id])
+  ticketId        String?    // Zuordnung zu Ticket
+  ticket          Ticket?    @relation(fields: [ticketId], references: [id])
+  isReply         Boolean    @default(false) // Ist Antwort auf bestehendes Ticket
+  parentMessageId String?    // Message-ID der ursprünglichen E-Mail
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  @@map("inbound_emails")
+}
+
+model EmailLog {
+  id          String      @id @default(cuid())
+  emailConfigId String?
+  emailConfig   EmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  level       String      // 'INFO', 'WARN', 'ERROR', 'DEBUG'
+  message     String      // Log-Nachricht
+  details     Json?       // Zusätzliche Details als JSON
+  errorCode   String?     // Fehlercode falls vorhanden
+  stackTrace String?      // Stack-Trace bei Fehlern
+  metadata   Json?       // Metadaten (E-Mail-Details, etc.)
+  createdAt  DateTime    @default(now())
+  
+  @@map("email_logs")
+}
+
+model MaintenanceWindow {
+  id          String            @id @default(cuid())
+  companyId   String
+  title       String
+  description String?
+  type        MaintenanceType
+  status      MaintenanceStatus @default(SCHEDULED)
+  scheduledAt DateTime
+  estimatedDuration Int?        // in minutes
+  actualStartAt DateTime?
+  actualEndAt DateTime?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@map("maintenance_windows")
+}
